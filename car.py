@@ -10,7 +10,7 @@ import math
 
 ###################################################################################################################################
 
-FPS, WIDTH, HEIGHT = 60, 1920, 1080
+FPS, WIDTH, HEIGHT = 60, 1440, 810
 generation = 0;
 IMAGES = {}
 obstacles = []
@@ -25,35 +25,77 @@ class Car:
         self.alive = True
         self.speed = 2
         self.direction = 0
-        self.rect = pygame.Rect(WIDTH/2, HEIGHT - 120, 20, 20)
+        self.rect = pygame.Rect(WIDTH/2, HEIGHT - 100, 5, 5)
 
     def image(self):
-        return pygame.transform.rotate(IMAGES["car"], self.direction * 57.3)
+        return pygame.transform.rotate(IMAGES["car"], -self.direction * 57.3 - 90)
 
-    def decision(self, x, y):
-        inputs = [x/WIDTH, y/HEIGHT]
+    def decision(self):
+        inputs = [1.0, 1.0] # [left, right]
+
+        xRounded = round(self.rect.x/6) * 6
+        yRounded = round(self.rect.y/6) * 6
+        angleRounded = round(self.direction/(math.pi/2)) * math.pi/2
+
+
+        for obstacle in obstacles:
+            if(obstacle.rect.x == xRounded and abs(obstacle.rect.y - self.rect.y) < 100):
+                dis = math.sqrt((self.rect.x - obstacle.rect.x) ** 2 + (self.rect.y - obstacle.rect.y) ** 2)
+                #if car is facing right
+                if(angleRounded == 0 or abs(angleRounded) == math.pi*2):
+                    if(obstacle.rect.y < self.rect.y):
+                        inputs[0] = dis
+                    else:
+                        inputs[1] = dis
+                #if car is facing left
+                elif(abs(angleRounded) == math.pi):
+                    if(obstacle.rect.y > self.rect.y):
+                        inputs[0] = dis
+                    else:
+                        inputs[1] = dis
+            if(obstacle.rect.y == yRounded and abs(obstacle.rect.x - self.rect.x) < 100):
+                dis = math.sqrt((self.rect.x - obstacle.rect.x) ** 2 + (self.rect.y - obstacle.rect.y) ** 2)
+                #if car is facing up
+                if(angleRounded == math.pi/2 or angleRounded == -3*math.pi*2):
+                    if(obstacle.rect.x < self.rect.x):
+                        inputs[0] = dis
+                    else:
+                        inputs[1] = dis
+                #if car is facing down
+                elif(angleRounded == -math.pi/2 or angleRounded == 3*math.pi*2):
+                    if(obstacle.rect.x > self.rect.x):
+                        inputs[0] = dis
+                    else:
+                        inputs[1] = dis
+
+
         outputs = self.nn.serial_activate(inputs)
-        self.direction = (outputs[0] - 0.5) * 6.28 * 2
+
+        if(outputs[0] > 0.5):
+            self.direction += 0.05
+        if(outputs[0] < 0.5):
+            self.direction -= 0.05
+        
 
     def move(self):
-        self.rect.x += self.speed * math.cos(self.direction)
-        self.rect.y += self.speed * math.sin(self.direction)
-
+        self.rect.x += math.ceil(self.speed * math.cos(self.direction))
+        self.rect.y += math.ceil(self.speed * math.sin(self.direction))
+       
     def inCollision(self, obstacles):
 
     		for obstacle in obstacles:
-    			if(math.sqrt((self.rect.x + self.rect.width/2 - obstacle.rect.x + obstacle.rect.width/2) ** 2 + (self.rect.y + self.rect.height/2 - obstacle.rect.y + obstacle.rect.height/2) ** 2) < 8):
-							return True
+    			if(math.sqrt((self.rect.x + self.rect.width/2 - obstacle.rect.x + obstacle.rect.width/2) ** 2 + (self.rect.y + self.rect.height/2 - obstacle.rect.y + obstacle.rect.height/2) ** 2) < 15):
+					return True
                 else:
-                        return False
+                    return False
 
 class Obstacle:
 
-		def __init__(self, x, y):
-				self.rect = pygame.Rect(x, y, 8, 8)
+	def __init__(self, x, y):
+			self.rect = pygame.Rect(x, y, 6, 6)
 
-		def image(self):
-				return IMAGES["obstacle"]
+	def image(self):
+			return IMAGES["obstacle"]
 
 
 ###################################################################################################################################
@@ -66,7 +108,8 @@ def sigmoid(x):
 ###################################################################################################################################
 
 def eval_fitness(genomes):
-    global  generation, highscore
+
+    global generation, highscore   
 
     car = Car(genomes[0])
     car.rect.height = HEIGHT/2
@@ -74,7 +117,6 @@ def eval_fitness(genomes):
     cars = []
     for genome in genomes:
         cars.append(Car(genome))
-
 
     cars_alive = len(cars)
 
@@ -94,15 +136,15 @@ def eval_fitness(genomes):
                 car.alive = False
                 cars_alive -= 1
                 lifespan = float(time.time() - start)
-                car.genome.fitness = sigmoid(math.sqrt(car.rect.x ** 2 + car.rect.y ** 2)/50 + lifespan/60)
-            car.decision(-1, 1)
+                car.genome.fitness = lifespan/60
+            car.decision()
             car.move()
             SCREEN.blit(car.image(), (car.rect.x , car.rect.y))
 
 
         # print statistics
 
-        label1 = FONT.render('ALIVE: ' + str(len(obstacles)), 2, (0,0,0))
+        label1 = FONT.render('ALIVE: ' + str(cars_alive), 2, (0,0,0))
         label2 = FONT.render('TIME: ' + str(time.time() - start), 2, (0,0,0))
         label3 = FONT.render('GENERATION: ' + str(generation), 2, (0,0,0))
         SCREEN.blit(label1, (WIDTH/2, 440))
@@ -143,11 +185,9 @@ def main():
     mapLayout = im.load()
 
     for x in range(240):
-    	for y in range(135):
-    		if(mapLayout[x, y] != 0):
-    			obstacles.append(Obstacle(x * 8, y * 8))
-
-
+        for y in range(135):
+            if(mapLayout[x, y] != 0):
+                obstacles.append(Obstacle(x * 6, y * 6))
     
     pop = population.Population('car_config')
     pop.run(eval_fitness, 10000)
