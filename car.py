@@ -10,7 +10,7 @@ import math
 
 ###################################################################################################################################
 
-FPS, WIDTH, HEIGHT = 60, 1440, 810
+FPS, WIDTH, HEIGHT = 60, 1920, 1080
 generation = 0;
 IMAGES = {}
 obstacles = []
@@ -25,7 +25,7 @@ class Car:
         self.alive = True
         self.speed = 2
         self.direction = 0
-        self.rect = pygame.Rect(WIDTH/2, HEIGHT - 100, 5, 5)
+        self.rect = pygame.Rect(WIDTH/2, HEIGHT - 100, 8, 8)
 
     def image(self):
         return pygame.transform.rotate(IMAGES["car"], -self.direction * 57.3 - 90)
@@ -33,8 +33,8 @@ class Car:
     def decision(self):
         inputs = [1.0, 1.0] # [left, right]
 
-        xRounded = round(self.rect.x/6) * 6
-        yRounded = round(self.rect.y/6) * 6
+        xRounded = round(self.rect.x/8) * 8
+        yRounded = round(self.rect.y/8) * 8
         angleRounded = round(self.direction/(math.pi/2)) * math.pi/2
 
 
@@ -92,7 +92,7 @@ class Car:
 class Obstacle:
 
 	def __init__(self, x, y):
-			self.rect = pygame.Rect(x, y, 6, 6)
+			self.rect = pygame.Rect(x, y, 8, 8)
 
 	def image(self):
 			return IMAGES["obstacle"]
@@ -187,7 +187,7 @@ def main():
     for x in range(240):
         for y in range(135):
             if(mapLayout[x, y] != 0):
-                obstacles.append(Obstacle(x * 6, y * 6))
+                obstacles.append(Obstacle(x * 8, y * 8))
     
     pop = population.Population('car_config')
     pop.run(eval_fitness, 10000)
