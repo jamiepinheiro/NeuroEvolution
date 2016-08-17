@@ -31,7 +31,7 @@ class Car:
         return pygame.transform.rotate(IMAGES["car"], -self.direction * 57.3 - 90)
 
     def decision(self):
-        inputs = [1.0, 1.0] # [left, right]
+        inputs = [0, 0] # [left, right]
 
         xRounded = round(self.rect.x/8) * 8
         yRounded = round(self.rect.y/8) * 8
@@ -135,7 +135,14 @@ def eval_fitness(genomes):
 
     start = time.time()
 
-    while cars_alive:
+    done = False
+
+    while cars_alive and done == False:
+
+        for event in pygame.event.get(): # User did something
+            if event.type == pygame.QUIT: # If user clicked close
+                done = True # Flag that we are done so we exit this loop
+                break
 
         SCREEN.fill(pygame.Color(255, 255, 255, 255))
 
