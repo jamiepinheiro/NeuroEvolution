@@ -39,34 +39,43 @@ class Car:
 
 
         for obstacle in obstacles:
-            if(obstacle.rect.x == xRounded and abs(obstacle.rect.y - self.rect.y) < 100):
+            obstacle.triggered = False
+            if(obstacle.rect.x == xRounded and abs(obstacle.rect.y - self.rect.y) < 250):
                 dis = math.sqrt((self.rect.x - obstacle.rect.x) ** 2 + (self.rect.y - obstacle.rect.y) ** 2)
                 #if car is facing right
                 if(angleRounded == 0 or abs(angleRounded) == math.pi*2):
                     if(obstacle.rect.y < self.rect.y):
                         inputs[0] = dis
+                        obstacle.triggered = True
                     else:
                         inputs[1] = dis
+                        obstacle.triggered = True
                 #if car is facing left
                 elif(abs(angleRounded) == math.pi):
                     if(obstacle.rect.y > self.rect.y):
                         inputs[0] = dis
+                        obstacle.triggered = True
                     else:
                         inputs[1] = dis
-            if(obstacle.rect.y == yRounded and abs(obstacle.rect.x - self.rect.x) < 100):
+                        obstacle.triggered = True
+            if(obstacle.rect.y == yRounded and abs(obstacle.rect.x - self.rect.x) < 250):
                 dis = math.sqrt((self.rect.x - obstacle.rect.x) ** 2 + (self.rect.y - obstacle.rect.y) ** 2)
                 #if car is facing up
                 if(angleRounded == math.pi/2 or angleRounded == -3*math.pi*2):
                     if(obstacle.rect.x < self.rect.x):
                         inputs[0] = dis
+                        obstacle.triggered = True
                     else:
                         inputs[1] = dis
+                        obstacle.triggered = True
                 #if car is facing down
                 elif(angleRounded == -math.pi/2 or angleRounded == 3*math.pi*2):
                     if(obstacle.rect.x > self.rect.x):
                         inputs[0] = dis
+                        obstacle.triggered = True
                     else:
                         inputs[1] = dis
+                        obstacle.triggered = True
 
 
         outputs = self.nn.serial_activate(inputs)
@@ -83,19 +92,23 @@ class Car:
        
     def inCollision(self, obstacles):
 
-    		for obstacle in obstacles:
-    			if(math.sqrt((self.rect.x + self.rect.width/2 - obstacle.rect.x + obstacle.rect.width/2) ** 2 + (self.rect.y + self.rect.height/2 - obstacle.rect.y + obstacle.rect.height/2) ** 2) < 15):
-					return True
-                else:
-                    return False
+        for obstacle in obstacles:
+            if(math.sqrt((self.rect.x + self.rect.width/2 - obstacle.rect.x + obstacle.rect.width/2) ** 2 + (self.rect.y + self.rect.height/2 - obstacle.rect.y + obstacle.rect.height/2) ** 2) < 15):
+                return True
+
+        return False
 
 class Obstacle:
 
-	def __init__(self, x, y):
-			self.rect = pygame.Rect(x, y, 8, 8)
+    def __init__(self, x, y):
+        self.rect = pygame.Rect(x, y, 8, 8)
+        self.triggered = False
 
-	def image(self):
-			return IMAGES["obstacle"]
+    def image(self):
+        if (self.triggered):
+            return IMAGES["obstacle_triggered"]
+        else:
+            return IMAGES["obstacle"]
 
 
 ###################################################################################################################################
@@ -127,7 +140,7 @@ def eval_fitness(genomes):
         SCREEN.fill(pygame.Color(255, 255, 255, 255))
 
         for obstacle in obstacles:
-        	 SCREEN.blit(obstacle.image(), (obstacle.rect.x , obstacle.rect.y))
+             SCREEN.blit(obstacle.image(), (obstacle.rect.x , obstacle.rect.y))
 
         for car in cars:
             if not car.alive:
@@ -155,6 +168,7 @@ def eval_fitness(genomes):
         pygame.display.update()
         pygame.display.flip()
         FPSCLOCK.tick(FPS)
+
     generation += 1
 
 ###################################################################################################################################
@@ -170,6 +184,7 @@ def main():
 
     IMAGES['car'] = pygame.image.load("pics/car.png").convert()
     IMAGES['obstacle']  = pygame.image.load("pics/obstacle.png").convert()
+    IMAGES['obstacle_triggered']  = pygame.image.load("pics/obstacle_triggered.png").convert()
 
     pygame.display.flip()
     pygame.display.update()
@@ -181,7 +196,7 @@ def main():
             if event.type == KEYDOWN and event.key == K_SPACE:
                 hold = False
 
-    im = Image.open("pics/map.png")
+    im = Image.open("pics/map_easy.png")
     mapLayout = im.load()
 
     for x in range(240):
