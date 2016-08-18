@@ -15,7 +15,7 @@ generation = 0;
 IMAGES = {}
 obstacles = []
 xTimer = 0
-xOffset = 1
+xOffset = 0.05
 
 ###################################################################################################################################
 
@@ -27,7 +27,7 @@ class Car:
         self.alive = True
         self.speed = 2
         self.direction = 0
-        self.rect = pygame.Rect(WIDTH/5, HEIGHT/2, 8, 8)
+        self.rect = pygame.Rect(WIDTH/5 + 20, HEIGHT/2, 8, 8)
 
     def image(self):
         return pygame.transform.rotate(IMAGES["car"], -self.direction * 57.3 - 90)
@@ -39,25 +39,30 @@ class Car:
         xRounded = round(self.rect.x/8) * 8
         yRounded = round(self.rect.y/8) * 8
 
+        closestX1, closestX2 = 1000, 1000;
         closest1, closest2 = None, None
 
         for obstacle in obstacles:
+
+            disX = abs(self.rect.x - obstacle.rect.x)
+
             obstacle.triggered = False
 
-            dis = math.sqrt((self.rect.x - obstacle.rect.x) ** 2 + (self.rect.y - obstacle.rect.y) ** 2)
-
-            if(obstacle.rect.y < self.rect.y and inputs[0] > dis):
-                if(closest1 is not None):
+            if(disX < closestX1 and obstacle.rect.y < self.rect.y):
+                if closest1 is not None:
                     closest1.triggered = False
-                inputs[0] = dis
+                closestX1 = disX
                 closest1 = obstacle
-                obstacle.triggered = True
-            elif(obstacle.rect.y > self.rect.y and inputs[1] > dis):
-                if(closest2 is not None):
+                closest1.triggered = True
+            elif(disX < closestX2 and obstacle.rect.y > self.rect.y):
+                if closest2 is not None:
                     closest2.triggered = False
-                inputs[1] = dis
+                closestX2 = disX 
                 closest2 = obstacle
-                obstacle.triggered = True
+                closest2.triggered = True
+
+        inputs[0] = abs(closest1.rect.y - self.rect.y)
+        inputs[1] = abs(closest2.rect.y - self.rect.y)
 
         outputs = self.nn.serial_activate(inputs)
 
@@ -100,11 +105,25 @@ def eval_fitness(genomes):
 
     obstacles = []
 
+    for y in range(12):
+        obstacles.append(Obstacle(WIDTH/5, HEIGHT/2-48 + y * 8))
+
+    min, max, chagneFreq = -5, 5, 2
     currentY = HEIGHT/2
     for x in range(1000):
-        obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY + 50))
-        obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY - 50))
-        currentY += round(random.uniform(-5, 5))
+        obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY + 48))
+        obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY - 48))
+        if(currentY < 150):
+            currentY += 8
+        elif(currentY > 930):
+            currentY -= 8
+        else:
+            if(x % chagneFreq == 0):
+                currentY += round(random.uniform(min, max))
+            if(x % 20 == 0):
+                min = round(random.uniform(-10, 0))
+                min = round(random.uniform(0, 10))
+                chagneFreq = round(random.uniform(1, 3))
 
     car = Car(genomes[0])
     car.rect.height = HEIGHT/2
@@ -116,6 +135,8 @@ def eval_fitness(genomes):
     cars_alive = len(cars)
 
     start = time.time()
+
+    markersOffset = 0
 
     done = False
 
@@ -131,8 +152,8 @@ def eval_fitness(genomes):
         SCREEN.fill(pygame.Color(255, 255, 255, 255))
 
         for obstacle in obstacles:
-            if(xTimer > 0.1):
-                obstacle.rect.x -= xOffset;
+            if(xTimer > xOffset):
+                obstacle.rect.x -= 2;
             SCREEN.blit(obstacle.image(), (obstacle.rect.x , obstacle.rect.y))
 
         for car in cars:
@@ -143,14 +164,17 @@ def eval_fitness(genomes):
                 cars_alive -= 1
                 lifespan = float(time.time() - start)
                 car.genome.fitness = lifespan/60 + math.sqrt((car.rect.x - WIDTH/5) ** 2 + (car.rect.y - HEIGHT/2) ** 2)/1000
-            if(xTimer > 0.1):
-                car.rect.x -= xOffset;
+            if(xTimer > xOffset):
+                car.rect.x -= 2;
             car.decision()
             car.move()
             SCREEN.blit(car.image(), (car.rect.x , car.rect.y))
 
-        if(xTimer > 1):
-            xTimer = 0
+        if(xTimer > xOffset):
+            markersOffset -= 2
+
+        if(xTimer > xOffset):
+            start = time.time()
 
 
         # print statistics
@@ -161,6 +185,10 @@ def eval_fitness(genomes):
         SCREEN.blit(label1, (WIDTH/2, 100))
         SCREEN.blit(label2, (WIDTH/2, 120))
         SCREEN.blit(label3, (WIDTH/2, 140))
+
+        for x in range(10):
+            label = FONT.render(str(x * 100) + "m", 10, (0,0,0))
+            SCREEN.blit(label, (WIDTH/2 + x * 800 + markersOffset, 1000))
 
         # update the screen and tick the clock
         pygame.display.update()
