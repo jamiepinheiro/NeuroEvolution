@@ -114,12 +114,17 @@ def eval_fitness(genomes):
 
     obstacles = []
 
-    for y in range(12):
-        obstacles.append(Obstacle(WIDTH/5, HEIGHT/2-48 + y * 8))
+    
 
     min, max, changeFreq, j = -5, 5, 2, 0
     currentY = HEIGHT/2
     for x in range(1000):
+        if(x == 0):
+            for y in range(135):
+                obstacles.append(Obstacle(WIDTH/5, y * 8))
+        if(x == 999):
+            for y in range(135):
+                obstacles.append(Obstacle(WIDTH/5 + x * 8, y * 8))
         obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY + 48))
         obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY - 48))
         if(currentY < 150):
@@ -176,7 +181,7 @@ def eval_fitness(genomes):
                 car.alive = False
                 cars_alive -= 1
                 lifespan = float(time.time() - lifespanStart)
-                car.genome.fitness = lifespan/60 + math.sqrt((car.rect.x - WIDTH/5) ** 2 + (car.rect.y - HEIGHT/2) ** 2)/1000
+                car.genome.fitness = lifespan/60 + car.x/500
             car.decision()
             car.move()
             SCREEN.blit(car.image(), (car.rect.x , car.rect.y))
