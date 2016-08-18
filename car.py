@@ -2,7 +2,7 @@ import pygame
 from pygame.locals import *
 from PIL import Image
 
-from neat import nn, population
+from neat import nn, population, statistics
 
 import random
 import time
@@ -235,6 +235,10 @@ def main():
     
     pop = population.Population('car_config')
     pop.run(eval_fitness, 10000)
+
+    statistics.save_stats(pop.statistics)
+    statistics.save_species_count(pop.statistics)
+    statistics.save_species_fitness(pop.statistics)
 
 ###################################################################################################################################
 
