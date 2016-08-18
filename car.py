@@ -4,7 +4,7 @@ from PIL import Image
 
 from neat import nn, population
 
-import random as rnd
+import random
 import time
 import math
 
@@ -14,6 +14,8 @@ FPS, WIDTH, HEIGHT = 60, 1920, 1080
 generation = 0;
 IMAGES = {}
 obstacles = []
+xTimer = 0
+xOffset = 1
 
 ###################################################################################################################################
 
@@ -25,58 +27,37 @@ class Car:
         self.alive = True
         self.speed = 2
         self.direction = 0
-        self.rect = pygame.Rect(WIDTH/2, HEIGHT - 100, 8, 8)
+        self.rect = pygame.Rect(WIDTH/5, HEIGHT/2, 8, 8)
 
     def image(self):
         return pygame.transform.rotate(IMAGES["car"], -self.direction * 57.3 - 90)
 
     def decision(self):
-        inputs = [0, 0] # [left, right]
+        inputs = [1000, 1000] # [left, right]
+        xDis = 1000;
 
         xRounded = round(self.rect.x/8) * 8
         yRounded = round(self.rect.y/8) * 8
-        angleRounded = round(self.direction/(math.pi/2)) * math.pi/2
 
+        closest1, closest2 = None, None
 
         for obstacle in obstacles:
             obstacle.triggered = False
-            if(obstacle.rect.x == xRounded and abs(obstacle.rect.y - self.rect.y) < 250):
-                dis = math.sqrt((self.rect.x - obstacle.rect.x) ** 2 + (self.rect.y - obstacle.rect.y) ** 2)
-                #if car is facing right
-                if(angleRounded == 0 or abs(angleRounded) == math.pi*2):
-                    if(obstacle.rect.y < self.rect.y):
-                        inputs[0] = dis
-                        obstacle.triggered = True
-                    else:
-                        inputs[1] = dis
-                        obstacle.triggered = True
-                #if car is facing left
-                elif(abs(angleRounded) == math.pi):
-                    if(obstacle.rect.y > self.rect.y):
-                        inputs[0] = dis
-                        obstacle.triggered = True
-                    else:
-                        inputs[1] = dis
-                        obstacle.triggered = True
-            if(obstacle.rect.y == yRounded and abs(obstacle.rect.x - self.rect.x) < 250):
-                dis = math.sqrt((self.rect.x - obstacle.rect.x) ** 2 + (self.rect.y - obstacle.rect.y) ** 2)
-                #if car is facing up
-                if(angleRounded == math.pi/2 or angleRounded == -3*math.pi*2):
-                    if(obstacle.rect.x < self.rect.x):
-                        inputs[0] = dis
-                        obstacle.triggered = True
-                    else:
-                        inputs[1] = dis
-                        obstacle.triggered = True
-                #if car is facing down
-                elif(angleRounded == -math.pi/2 or angleRounded == 3*math.pi*2):
-                    if(obstacle.rect.x > self.rect.x):
-                        inputs[0] = dis
-                        obstacle.triggered = True
-                    else:
-                        inputs[1] = dis
-                        obstacle.triggered = True
 
+            dis = math.sqrt((self.rect.x - obstacle.rect.x) ** 2 + (self.rect.y - obstacle.rect.y) ** 2)
+
+            if(obstacle.rect.y < self.rect.y and inputs[0] > dis):
+                if(closest1 is not None):
+                    closest1.triggered = False
+                inputs[0] = dis
+                closest1 = obstacle
+                obstacle.triggered = True
+            elif(obstacle.rect.y > self.rect.y and inputs[1] > dis):
+                if(closest2 is not None):
+                    closest2.triggered = False
+                inputs[1] = dis
+                closest2 = obstacle
+                obstacle.triggered = True
 
         outputs = self.nn.serial_activate(inputs)
 
@@ -113,16 +94,17 @@ class Obstacle:
 
 ###################################################################################################################################
 
-
-def sigmoid(x):
-  return 1 / (1 + math.exp(-x))
-
-
-###################################################################################################################################
-
 def eval_fitness(genomes):
 
-    global generation, highscore   
+    global generation, obstacles
+
+    obstacles = []
+
+    currentY = HEIGHT/2
+    for x in range(1000):
+        obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY + 50))
+        obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY - 50))
+        currentY += round(random.uniform(-5, 5))
 
     car = Car(genomes[0])
     car.rect.height = HEIGHT/2
@@ -144,10 +126,14 @@ def eval_fitness(genomes):
                 done = True # Flag that we are done so we exit this loop
                 break
 
+        xTimer = (time.time() - start)
+
         SCREEN.fill(pygame.Color(255, 255, 255, 255))
 
         for obstacle in obstacles:
-             SCREEN.blit(obstacle.image(), (obstacle.rect.x , obstacle.rect.y))
+            if(xTimer > 0.1):
+                obstacle.rect.x -= xOffset;
+            SCREEN.blit(obstacle.image(), (obstacle.rect.x , obstacle.rect.y))
 
         for car in cars:
             if not car.alive:
@@ -156,10 +142,15 @@ def eval_fitness(genomes):
                 car.alive = False
                 cars_alive -= 1
                 lifespan = float(time.time() - start)
-                car.genome.fitness = lifespan/60
+                car.genome.fitness = lifespan/60 + math.sqrt((car.rect.x - WIDTH/5) ** 2 + (car.rect.y - HEIGHT/2) ** 2)/1000
+            if(xTimer > 0.1):
+                car.rect.x -= xOffset;
             car.decision()
             car.move()
             SCREEN.blit(car.image(), (car.rect.x , car.rect.y))
+
+        if(xTimer > 1):
+            xTimer = 0
 
 
         # print statistics
@@ -167,9 +158,9 @@ def eval_fitness(genomes):
         label1 = FONT.render('ALIVE: ' + str(cars_alive), 2, (0,0,0))
         label2 = FONT.render('TIME: ' + str(time.time() - start), 2, (0,0,0))
         label3 = FONT.render('GENERATION: ' + str(generation), 2, (0,0,0))
-        SCREEN.blit(label1, (WIDTH/2, 440))
-        SCREEN.blit(label2, (WIDTH/2, 460))
-        SCREEN.blit(label3, (WIDTH/2, 480))
+        SCREEN.blit(label1, (WIDTH/2, 100))
+        SCREEN.blit(label2, (WIDTH/2, 120))
+        SCREEN.blit(label3, (WIDTH/2, 140))
 
         # update the screen and tick the clock
         pygame.display.update()
@@ -195,28 +186,9 @@ def main():
 
     pygame.display.flip()
     pygame.display.update()
- 
-    # hold until space is pushed
-    hold = True
-    while hold:
-        for event in pygame.event.get():
-            if event.type == KEYDOWN and event.key == K_SPACE:
-                hold = False
-
-    im = Image.open("pics/map_easy.png")
-    mapLayout = im.load()
-
-    for x in range(240):
-        for y in range(135):
-            if(mapLayout[x, y] != 0):
-                obstacles.append(Obstacle(x * 8, y * 8))
     
     pop = population.Population('car_config')
     pop.run(eval_fitness, 10000)
-
-
-
-    
 
 ###################################################################################################################################
 
