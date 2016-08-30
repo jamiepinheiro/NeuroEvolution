@@ -14,6 +14,7 @@ obstacles = []
 generation = 0;
 xTimer = 0
 xOffset = 0
+currentBest = 0
 
 ###################################################################################################################################
 
@@ -21,6 +22,7 @@ xOffset = 0
 class Car:
     #initialize car object
     def __init__(self, genome):
+        self.start = WIDTH/5 + 20
         self.x = WIDTH/5 + 20
         self.y = HEIGHT/2
         self.genome = genome
@@ -72,10 +74,8 @@ class Car:
         outputs = self.nn.serial_activate(inputs)
 
         #steer based on outputs
-        if(outputs[0] > 0.5):
-            self.direction += 0.05
-        if(outputs[0] < 0.5):
-            self.direction -= 0.05
+        if(abs(outputs[0]-0.5) > 0.2):
+            self.direction += (outputs[0]-0.5)/20
         
     #move based on steering direction
     def move(self):
@@ -120,7 +120,7 @@ class Obstacle:
 def eval_fitness(genomes):
 
     #access variables
-    global generation, obstacles, xOffset
+    global generation, obstacles, xOffset, currentBest
 
     #create random winding road for generation
     obstacles = []
@@ -130,11 +130,11 @@ def eval_fitness(genomes):
     #generate 1000m of road
     for x in range(1000):
         if(x == 0):
-            for y in range(135):
-                obstacles.append(Obstacle(WIDTH/5, y * 8))
+            for y in range(65):
+                obstacles.append(Obstacle(WIDTH/5, y * 8 + 280))
         if(x == 999):
-            for y in range(135):
-                obstacles.append(Obstacle(WIDTH/5 + x * 8, y * 8))
+            for y in range(65):
+                obstacles.append(Obstacle(WIDTH/5 + x * 8, y * 8 + 280))
         obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY + 48))
         obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY - 48))
 
@@ -193,8 +193,9 @@ def eval_fitness(genomes):
             if car.inCollision(obstacles):
                 car.alive = False
                 cars_alive -= 1
-                lifespan = float(time.time() - lifespanStart)
-                car.genome.fitness = car.x/1000
+                car.genome.fitness = ((car.x - car.start)/8)/1000
+            if((car.x - car.start)/8 > currentBest):
+                    currentBest = (car.x - car.start)/8
             car.decision()
             car.move()
             SCREEN.blit(car.image(), (car.rect.x , car.rect.y))
@@ -210,14 +211,15 @@ def eval_fitness(genomes):
                 offsetStart = time.time()
 
         #print stats on screen
-        SCREEN.blit(FONT.render("ALIVE: " + str(cars_alive), 2, (0,0,0)), (20, 80))
-        SCREEN.blit(FONT.render("TIME: " + str(round(time.time() - lifespanStart, 2)) + " s", 2, (0,0,0)), (20, 120))
-        SCREEN.blit(FONT.render("GENERATION: " + str(generation), 2, (0,0,0)), (20, 160))
+        pygame.draw.rect(SCREEN, (20, 50, 100), [10, 70, 320, 170])
+        SCREEN.blit(FONT.render("ALIVE: " + str(cars_alive), 2, (255,255,255)), (20, 80))
+        SCREEN.blit(FONT.render("TIME: " + str(round(time.time() - lifespanStart, 2)) + " s", 2, (255,255,255)), (20, 120))
+        SCREEN.blit(FONT.render("GENERATION: " + str(generation), 2, (255,255,255)), (20, 160))
+        SCREEN.blit(FONT.render("CURRENT BEST: " + str(round(currentBest, 1)) + " m", 2, (255,255,255)), (20, 200))
 
         #draw distance markers
         for x in range(10):
-            label = FONT.render(str(x * 100) + "m", 10, (0,0,0))
-            SCREEN.blit(label, (WIDTH/2 + x * 800 + xOffset, 1000))
+            SCREEN.blit(FONT.render(str(x * 100) + "M", 10, (0,0,0)), (WIDTH/5 + x * 800 + xOffset, 1000))
 
         # update the screen and tick the clock
         pygame.display.update()

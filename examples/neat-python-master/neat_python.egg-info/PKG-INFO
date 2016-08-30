@@ -1,0 +1,16 @@
+Metadata-Version: 1.1
+Name: neat-python
+Version: 0.7
+Summary: A NEAT (NeuroEvolution of Augmenting Topologies) implementation
+Home-page: https://github.com/CodeReclaimers/neat-python
+Author: CodeReclaimers, LLC
+Author-email: alan@codereclaimers.com
+License: BSD
+Description: Python implementation of NEAT (NeuroEvolution of Augmenting Topologies), a method developed by Kenneth O. Stanley for evolving arbitrary neural networks.
+Platform: UNKNOWN
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Topic :: Scientific/Engineering
