@@ -76,6 +76,9 @@ class Car:
         #steer based on outputs
         if(abs(outputs[0]-0.5) > 0.2):
             self.direction += (outputs[0]-0.5)/20
+
+        #speed based on outputs
+        self.speed = outputs[1] * 2
         
     #move based on steering direction
     def move(self):
