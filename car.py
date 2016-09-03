@@ -1,6 +1,6 @@
 import pygame
 from pygame.locals import *
-from neat import nn, population, statistics
+from neat import nn, population
 import random
 import time
 import math
@@ -14,7 +14,8 @@ obstacles = []
 generation = 0;
 xTimer = 0
 xOffset = 0
-currentBest = 0
+currentBestDistance, currentBestFitness = 0, 0
+fitnessHistory = []
 
 ###################################################################################################################################
 
@@ -73,12 +74,21 @@ class Car:
         #send inputs to neural network and get outputs
         outputs = self.nn.serial_activate(inputs)
 
-        #steer based on outputs
-        if(abs(outputs[0]-0.5) > 0.2):
-            self.direction += (outputs[0]-0.5)/20
+        #steer based on nn outputs
+        outputs[0] -= 0.5
+        if(abs(outputs[0]) > 0.2):
+            self.direction += (outputs[0])/20
 
-        #speed based on outputs
-        self.speed = outputs[1] * 2
+        #accelerate based on nn outputs
+        outputs[1] -= 0.5
+        if(abs(outputs[1]) > 0.45):
+            self.speed += outputs[1]/40
+
+        #set floor and ceiling of speed
+        if(self.speed > 3):
+            self.speed = 3
+        elif(self.speed < 1):
+            self.speed = 1;
         
     #move based on steering direction
     def move(self):
@@ -123,37 +133,35 @@ class Obstacle:
 def eval_fitness(genomes):
 
     #access variables
-    global generation, obstacles, xOffset, currentBest
+    global generation, obstacles, xOffset, currentBestDistance, currentBestFitness, fitnessHistory
 
-    #create random winding road for generation
+    for i in range(len(fitnessHistory)/20):
+        print "Generation" + str(i),
+        for j in range(20):
+            if(len(fitnessHistory) >= i*20 + j):
+                print fitnessHistory[i*20 + j],
+        print ""
+
+    #create winding road for generation
     obstacles = []
+
     min, max, changeFreq = -0.5, 0.5, 1
     currentY = HEIGHT/2
 
-    #generate 1000m of road
-    for x in range(1000):
+    #road generation for 2000m
+    for x in range(2000):
+        #wall at the start
         if(x == 0):
-            for y in range(65):
+           for y in range(65):
                 obstacles.append(Obstacle(WIDTH/5, y * 8 + 280))
-        if(x == 999):
+        #wall at the end
+        elif(x == 1999):
             for y in range(65):
                 obstacles.append(Obstacle(WIDTH/5 + x * 8, y * 8 + 280))
-        obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY + 48))
-        obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY - 48))
-
-        if(currentY < 150):
-            min = 0
-            max = 10
-        elif(currentY > 930):
-            min = -10
-            max = 0
+        #winding road using sin
         else:
-            if(x % changeFreq == 0):
-                currentY += random.uniform(min, max)
-            if(x % 100 == 0):
-                min = round(random.uniform(-10, -1))
-                max = round(random.uniform(1, 10))
-                changeFreq = round(random.uniform(2, 3))
+            obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY + 27 + 350 * math.sin(x/100.0)))
+            obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY - 27 + 350 * math.sin(x/100.0)))
 
     #generate cars for the generation         
     cars = []
@@ -167,7 +175,7 @@ def eval_fitness(genomes):
     lifespanStart = time.time()
     done = False
     xOffset = 0
-    offsetTime = 0.02
+    offsetTime = 0.03
 
     #loop until all cars have crashed
     while cars_alive and done == False:
@@ -191,14 +199,17 @@ def eval_fitness(genomes):
 
         #draw cars, offset cars, check collisions, make decisions for cars and move cars
         for car in cars:
-            if not car.alive:
+            if(not car.alive):
                 continue
-            if car.inCollision(obstacles):
+            if(car.inCollision(obstacles) or car.rect.x < 0):
                 car.alive = False
                 cars_alive -= 1
-                car.genome.fitness = ((car.x - car.start)/8)/1000
-            if((car.x - car.start)/8 > currentBest):
-                    currentBest = (car.x - car.start)/8
+                car.genome.fitness = ((car.x - car.start)/8)/2000
+                if(car.genome.fitness > currentBestFitness):
+                    currentBestFitness = car.genome.fitness
+                fitnessHistory.append(car.genome.fitness)
+            if((car.x - car.start)/8 > currentBestDistance):
+                currentBestDistance = (car.x - car.start)/8
             car.decision()
             car.move()
             SCREEN.blit(car.image(), (car.rect.x , car.rect.y))
@@ -214,14 +225,15 @@ def eval_fitness(genomes):
                 offsetStart = time.time()
 
         #print stats on screen
-        pygame.draw.rect(SCREEN, (20, 50, 100), [10, 70, 320, 170])
+        pygame.draw.rect(SCREEN, (20, 50, 100), [10, 70, 500, 210])
         SCREEN.blit(FONT.render("ALIVE: " + str(cars_alive), 2, (255,255,255)), (20, 80))
         SCREEN.blit(FONT.render("TIME: " + str(round(time.time() - lifespanStart, 2)) + " s", 2, (255,255,255)), (20, 120))
         SCREEN.blit(FONT.render("GENERATION: " + str(generation), 2, (255,255,255)), (20, 160))
-        SCREEN.blit(FONT.render("CURRENT BEST: " + str(round(currentBest, 1)) + " m", 2, (255,255,255)), (20, 200))
+        SCREEN.blit(FONT.render("CURRENT BEST DISTANCE: " + str(round(currentBestDistance, 1)) + " m", 2, (255,255,255)), (20, 200))
+        SCREEN.blit(FONT.render("CURRENT BEST FITNESS: " + str(currentBestFitness), 2, (255,255,255)), (20, 240))
 
         #draw distance markers
-        for x in range(10):
+        for x in range(20):
             SCREEN.blit(FONT.render(str(x * 100) + "M", 10, (0,0,0)), (WIDTH/5 + x * 800 + xOffset, 1000))
 
         # update the screen and tick the clock
@@ -253,9 +265,5 @@ IMAGES['obstacle_triggered']  = pygame.image.load("pics/obstacle_triggered.png")
 pop = population.Population('car_config')
 pop.run(eval_fitness, 10000)
 
-#log stats
-statistics.save_stats(pop.statistics)
-statistics.save_species_count(pop.statistics)
-statistics.save_species_fitness(pop.statistics)
 
 ###################################################################################################################################
