@@ -81,8 +81,8 @@ class Car:
 
         #accelerate based on nn outputs
         outputs[1] -= 0.5
-        if(abs(outputs[1]) > 0.45):
-            self.speed += outputs[1]/40
+        if(abs(outputs[1]) > 0.49):
+            self.speed += outputs[1]/100
 
         #set floor and ceiling of speed
         if(self.speed > 3):
@@ -135,17 +135,24 @@ def eval_fitness(genomes):
     #access variables
     global generation, obstacles, xOffset, currentBestDistance, currentBestFitness, fitnessHistory
 
-    for i in range(len(fitnessHistory)/20):
+    #reset control variables
+    offsetStart = time.time()
+    lifespanStart = time.time()
+    done = False
+    xOffset = 0
+    offsetTime = 0.03
+    xOffsetSpeed = 2
+
+    for i in range(len(fitnessHistory)/25):
         print "Generation" + str(i),
-        for j in range(20):
-            if(len(fitnessHistory) >= i*20 + j):
-                print fitnessHistory[i*20 + j],
+        for j in range(25):
+            if(len(fitnessHistory) >= i*25 + j):
+                print fitnessHistory[i*25 + j],
         print ""
 
     #create winding road for generation
     obstacles = []
 
-    min, max, changeFreq = -0.5, 0.5, 1
     currentY = HEIGHT/2
 
     #road generation for 2000m
@@ -160,8 +167,8 @@ def eval_fitness(genomes):
                 obstacles.append(Obstacle(WIDTH/5 + x * 8, y * 8 + 280))
         #winding road using sin
         else:
-            obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY + 27 + 350 * math.sin(x/100.0)))
-            obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY - 27 + 350 * math.sin(x/100.0)))
+            obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY + 30 + 350 * math.sin(x/100.0)))
+            obstacles.append(Obstacle(WIDTH/5 + x * 8, currentY - 30 + 350 * math.sin(x/100.0)))
 
     #generate cars for the generation         
     cars = []
@@ -169,13 +176,6 @@ def eval_fitness(genomes):
         cars.append(Car(genome))
 
     cars_alive = len(cars)
-
-    #reset control variables
-    offsetStart = time.time()
-    lifespanStart = time.time()
-    done = False
-    xOffset = 0
-    offsetTime = 0.03
 
     #loop until all cars have crashed
     while cars_alive and done == False:
@@ -217,12 +217,11 @@ def eval_fitness(genomes):
         #offset screen to keep up with cars moving right
         if(xTimer > offsetTime):
             for car in cars:
-                if car.rect.x > WIDTH/2:
-                    offsetTime -= 0.01
+                if car.rect.x > 3*WIDTH/4:
+                    xOffset -= car.rect.x - 3*WIDTH/4;
 
-            if(len(cars) != 1):
-                xOffset -= 2
-                offsetStart = time.time()
+            xOffset -= xOffsetSpeed
+            offsetStart = time.time()
 
         #print stats on screen
         pygame.draw.rect(SCREEN, (20, 50, 100), [10, 70, 500, 210])
